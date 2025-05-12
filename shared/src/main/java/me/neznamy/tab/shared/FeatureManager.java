@@ -7,7 +7,8 @@ import me.neznamy.tab.shared.TabConstants.CpuUsageCategory;
 import me.neznamy.tab.shared.config.files.Config;
 import me.neznamy.tab.shared.config.mysql.MySQLUserConfiguration;
 import me.neznamy.tab.shared.cpu.TimedCaughtTask;
-import me.neznamy.tab.shared.features.*;
+import me.neznamy.tab.shared.features.NickCompatibility;
+import me.neznamy.tab.shared.features.SpectatorFix;
 import me.neznamy.tab.shared.features.belowname.BelowName;
 import me.neznamy.tab.shared.features.bossbar.BossBarManagerImpl;
 import me.neznamy.tab.shared.features.globalplayerlist.GlobalPlayerList;
@@ -40,20 +41,30 @@ import java.util.*;
  */
 public class FeatureManager {
 
-    /** Map of all registered feature where key is feature's identifier */
+    /**
+     * Map of all registered feature where key is feature's identifier
+     */
     private final Map<String, TabFeature> features = new LinkedHashMap<>();
 
-    /** All registered features in an array to avoid memory allocations on iteration */
+    /**
+     * All registered features in an array to avoid memory allocations on iteration
+     */
     @NotNull
     private TabFeature[] values = new TabFeature[0];
 
-    /** Flag tracking presence of a feature listening to latency change for faster check with better performance */
+    /**
+     * Flag tracking presence of a feature listening to latency change for faster check with better performance
+     */
     private boolean hasLatencyChangeListener;
 
-    /** Flag tracking presence of a feature listening to command preprocess for faster check with better performance */
+    /**
+     * Flag tracking presence of a feature listening to command preprocess for faster check with better performance
+     */
     private boolean hasCommandListener;
 
-    /** Commands features listen to */
+    /**
+     * Commands features listen to
+     */
     private final List<String> listeningCommands = new ArrayList<>();
 
     /**
@@ -65,7 +76,7 @@ public class FeatureManager {
             if (!(f instanceof Loadable)) continue;
             long time = System.currentTimeMillis();
             ((Loadable) f).load();
-            TAB.getInstance().debug("Feature " + f.getClass().getSimpleName() + " processed load in " + (System.currentTimeMillis()-time) + "ms");
+            TAB.getInstance().debug("Feature " + f.getClass().getSimpleName() + " processed load in " + (System.currentTimeMillis() - time) + "ms");
         }
         if (TAB.getInstance().getConfiguration().getUsers() instanceof MySQLUserConfiguration) {
             MySQLUserConfiguration users = (MySQLUserConfiguration) TAB.getInstance().getConfiguration().getUsers();
@@ -86,7 +97,7 @@ public class FeatureManager {
             if (f instanceof UnLoadable) {
                 long time = System.currentTimeMillis();
                 ((UnLoadable) f).unload();
-                TAB.getInstance().debug("Feature " + f.getClass().getSimpleName() + " processed unload in " + (System.currentTimeMillis()-time) + "ms");
+                TAB.getInstance().debug("Feature " + f.getClass().getSimpleName() + " processed unload in " + (System.currentTimeMillis() - time) + "ms");
             }
         }
         for (TabFeature f : values) {
@@ -97,11 +108,11 @@ public class FeatureManager {
             player.getScoreboard().clear();
             player.getBossBar().clear();
         }
-        TAB.getInstance().debug("Unregistered all scoreboard teams, objectives and boss bars for all players in " + (System.currentTimeMillis()-time) + "ms");
+        TAB.getInstance().debug("Unregistered all scoreboard teams, objectives and boss bars for all players in " + (System.currentTimeMillis() - time) + "ms");
         TAB.getInstance().getPlaceholderManager().getTabExpansion().unregisterExpansion();
         if (TAB.getInstance().getPlatform() instanceof ProxyPlatform) {
             for (TabPlayer player : TAB.getInstance().getOnlinePlayers()) {
-                ((ProxyTabPlayer)player).sendPluginMessage(new Unload());
+                ((ProxyTabPlayer) player).sendPluginMessage(new Unload());
             }
         }
     }
@@ -109,8 +120,7 @@ public class FeatureManager {
     /**
      * Calls onGroupChange to all features implementing {@link GroupListener}.
      *
-     * @param   player
-     *          player with new group
+     * @param player player with new group
      */
     public void onGroupChange(@NotNull TabPlayer player) {
         for (TabFeature f : values) {
@@ -128,8 +138,7 @@ public class FeatureManager {
     /**
      * Forwards gamemode change to all enabled features.
      *
-     * @param   player
-     *          Player whose gamemode has changed.
+     * @param player Player whose gamemode has changed.
      */
     public void onGameModeChange(@NotNull TabPlayer player) {
         for (TabFeature f : values) {
@@ -147,8 +156,7 @@ public class FeatureManager {
     /**
      * Forwards player quit to all features
      *
-     * @param   disconnectedPlayer
-     *          Player who left
+     * @param disconnectedPlayer Player who left
      */
     public void onQuit(@Nullable TabPlayer disconnectedPlayer) {
         if (disconnectedPlayer == null) return;
@@ -166,16 +174,15 @@ public class FeatureManager {
         }
         TAB.getInstance().removePlayer(disconnectedPlayer);
         for (TabPlayer all : TAB.getInstance().getOnlinePlayers()) {
-            ((TrackedTabList<?>)all.getTabList()).getExpectedDisplayNames().remove(disconnectedPlayer.getTablistId());
+            ((TrackedTabList<?>) all.getTabList()).getExpectedDisplayNames().remove(disconnectedPlayer.getTablistId());
         }
-        TAB.getInstance().debug("Player quit of " + disconnectedPlayer.getName() + " processed in " + (System.currentTimeMillis()-millis) + "ms");
+        TAB.getInstance().debug("Player quit of " + disconnectedPlayer.getName() + " processed in " + (System.currentTimeMillis() - millis) + "ms");
     }
 
     /**
      * Handles player join and forwards it to all features.
      *
-     * @param   connectedPlayer
-     *          Player who joined
+     * @param connectedPlayer Player who joined
      */
     public void onJoin(@NotNull TabPlayer connectedPlayer) {
         long millis = System.currentTimeMillis();
@@ -185,7 +192,7 @@ public class FeatureManager {
             TimedCaughtTask task = new TimedCaughtTask(TAB.getInstance().getCpu(), () -> {
                 long time = System.nanoTime();
                 ((JoinListener) f).onJoin(connectedPlayer);
-                TAB.getInstance().debug("Feature " + f.getClass().getSimpleName() + " processed player join in " + (System.nanoTime()-time)/1000000 + "ms");
+                TAB.getInstance().debug("Feature " + f.getClass().getSimpleName() + " processed player join in " + (System.nanoTime() - time) / 1000000 + "ms");
             }, f.getFeatureName(), CpuUsageCategory.PLAYER_JOIN);
             if (f instanceof CustomThreaded) {
                 ((CustomThreaded) f).getCustomThread().execute(task);
@@ -194,7 +201,7 @@ public class FeatureManager {
             }
         }
         connectedPlayer.markAsLoaded(true);
-        TAB.getInstance().debug("Player join of " + connectedPlayer.getName() + " processed in " + (System.currentTimeMillis()-millis) + "ms");
+        TAB.getInstance().debug("Player join of " + connectedPlayer.getName() + " processed in " + (System.currentTimeMillis() - millis) + "ms");
         if (TAB.getInstance().getConfiguration().getUsers() instanceof MySQLUserConfiguration) {
             MySQLUserConfiguration users = (MySQLUserConfiguration) TAB.getInstance().getConfiguration().getUsers();
             users.load(connectedPlayer);
@@ -204,10 +211,8 @@ public class FeatureManager {
     /**
      * Processed world change and forwards it to all features.
      *
-     * @param   playerUUID
-     *          UUID of player who switched worlds
-     * @param   to
-     *          New world name
+     * @param playerUUID UUID of player who switched worlds
+     * @param to         New world name
      */
     public void onWorldChange(@NotNull UUID playerUUID, @NotNull String to) {
         TabPlayer changed = TAB.getInstance().getPlayer(playerUUID);
@@ -224,23 +229,21 @@ public class FeatureManager {
                 task.run();
             }
         }
-        ((PlayerPlaceholder)TAB.getInstance().getPlaceholderManager().getPlaceholder(TabConstants.Placeholder.WORLD)).updateValue(changed, to);
+        ((PlayerPlaceholder) TAB.getInstance().getPlaceholderManager().getPlaceholder(TabConstants.Placeholder.WORLD)).updateValue(changed, to);
     }
 
     /**
      * Processed server switch and forwards it to all features.
      *
-     * @param   playerUUID
-     *          UUID of player who switched server
-     * @param   to
-     *          New server name
+     * @param playerUUID UUID of player who switched server
+     * @param to         New server name
      */
     public void onServerChange(@NotNull UUID playerUUID, @NotNull String to) {
         TabPlayer changed = TAB.getInstance().getPlayer(playerUUID);
         if (changed == null) return;
         String from = changed.server;
         changed.server = to;
-        ((ProxyTabPlayer)changed).sendJoinPluginMessage();
+        ((ProxyTabPlayer) changed).sendJoinPluginMessage();
         for (TabFeature f : values) {
             if (!(f instanceof ServerSwitchListener)) continue;
             TimedCaughtTask task = new TimedCaughtTask(TAB.getInstance().getCpu(),
@@ -251,18 +254,16 @@ public class FeatureManager {
                 task.run();
             }
         }
-        ((PlayerPlaceholder)TAB.getInstance().getPlaceholderManager().getPlaceholder(TabConstants.Placeholder.SERVER)).updateValue(changed, to);
+        ((PlayerPlaceholder) TAB.getInstance().getPlaceholderManager().getPlaceholder(TabConstants.Placeholder.SERVER)).updateValue(changed, to);
     }
 
     /**
      * Forwards command event to all features. Returns {@code true} if the event
      * should be cancelled, {@code false} if not.
      *
-     * @param   sender
-     *          Command sender
-     * @param   command
-     *          Executed command
-     * @return  {@code true} if event should be cancelled, {@code false} if not.
+     * @param sender  Command sender
+     * @param command Executed command
+     * @return {@code true} if event should be cancelled, {@code false} if not.
      */
     public boolean onCommand(@Nullable TabPlayer sender, @NotNull String command) {
         if (!hasCommandListener || sender == null) return false;
@@ -271,8 +272,8 @@ public class FeatureManager {
         for (TabFeature f : values) {
             if (!(f instanceof CommandListener)) continue;
             long time = System.nanoTime();
-            if (((CommandListener)f).onCommand(sender, command)) cancel = true;
-            TAB.getInstance().getCPUManager().addTime(f.getFeatureName(), CpuUsageCategory.COMMAND_PREPROCESS, System.nanoTime()-time);
+            if (((CommandListener) f).onCommand(sender, command)) cancel = true;
+            TAB.getInstance().getCPUManager().addTime(f.getFeatureName(), CpuUsageCategory.COMMAND_PREPROCESS, System.nanoTime() - time);
         }
         return cancel;
     }
@@ -280,12 +281,9 @@ public class FeatureManager {
     /**
      * Calls onDisplayObjective(...) on all features
      *
-     * @param   packetReceiver
-     *          player who received the packet
-     * @param   slot
-     *          Objective slot
-     * @param   objective
-     *          Objective name
+     * @param packetReceiver player who received the packet
+     * @param slot           Objective slot
+     * @param objective      Objective name
      */
     public void onDisplayObjective(@NotNull TabPlayer packetReceiver, int slot, @NotNull String objective) {
         for (TabFeature f : values) {
@@ -303,12 +301,9 @@ public class FeatureManager {
     /**
      * Calls onObjective(TabPlayer, PacketPlayOutScoreboardObjective) on all features
      *
-     * @param   packetReceiver
-     *          player who received the packet
-     * @param   action
-     *          Packet action
-     * @param   objective
-     *          Objective name
+     * @param packetReceiver player who received the packet
+     * @param action         Packet action
+     * @param objective      Objective name
      */
     public void onObjective(@NotNull TabPlayer packetReceiver, int action, @NotNull String objective) {
         for (TabFeature f : values) {
@@ -326,8 +321,7 @@ public class FeatureManager {
     /**
      * Forwards vanish status change to all features.
      *
-     * @param   player
-     *          Player whose vanish status changed
+     * @param player Player whose vanish status changed
      */
     public void onVanishStatusChange(@NotNull TabPlayer player) {
         for (TabFeature f : values) {
@@ -345,18 +339,15 @@ public class FeatureManager {
     /**
      * Forwards entry add to all features.
      *
-     * @param   packetReceiver
-     *          Player who received the packet
-     * @param   id
-     *          UUID of the entry
-     * @param   name
-     *          Player name of the entry
+     * @param packetReceiver Player who received the packet
+     * @param id             UUID of the entry
+     * @param name           Player name of the entry
      */
     public void onEntryAdd(TabPlayer packetReceiver, UUID id, String name) {
         for (TabFeature f : values) {
             if (!(f instanceof EntryAddListener)) continue;
             long time = System.nanoTime();
-            ((EntryAddListener)f).onEntryAdd(packetReceiver, id, name);
+            ((EntryAddListener) f).onEntryAdd(packetReceiver, id, name);
             TAB.getInstance().getCPUManager().addTime(f.getFeatureName(), CpuUsageCategory.NICK_PLUGIN_COMPATIBILITY, System.nanoTime() - time);
         }
     }
@@ -364,13 +355,10 @@ public class FeatureManager {
     /**
      * Forwards latency change to all features and returns new latency to use.
      *
-     * @param   packetReceiver
-     *          Player who received the packet
-     * @param   id
-     *          UUID of player whose ping changed
-     * @param   latency
-     *          Latency in the packet
-     * @return  New latency to use
+     * @param packetReceiver Player who received the packet
+     * @param id             UUID of player whose ping changed
+     * @param latency        Latency in the packet
+     * @return New latency to use
      */
     public int onLatencyChange(TabPlayer packetReceiver, UUID id, int latency) {
         if (!hasLatencyChangeListener) return latency;
@@ -378,7 +366,7 @@ public class FeatureManager {
         for (TabFeature f : values) {
             if (!(f instanceof LatencyListener)) continue;
             long time = System.nanoTime();
-            newLatency = ((LatencyListener)f).onLatencyChange(packetReceiver, id, newLatency);
+            newLatency = ((LatencyListener) f).onLatencyChange(packetReceiver, id, newLatency);
             TAB.getInstance().getCPUManager().addTime(f.getFeatureName(), CpuUsageCategory.PING_CHANGE, System.nanoTime() - time);
         }
         return newLatency;
@@ -387,8 +375,7 @@ public class FeatureManager {
     /**
      * Forwards tablist clear to all enabled features.
      *
-     * @param   packetReceiver
-     *          Player whose tablist got cleared
+     * @param packetReceiver Player whose tablist got cleared
      */
     public void onTabListClear(TabPlayer packetReceiver) {
         for (TabFeature f : values) {
@@ -422,8 +409,7 @@ public class FeatureManager {
     /**
      * Handles proxy player join and forwards it to all features.
      *
-     * @param   connectedPlayer
-     *          Player who joined
+     * @param connectedPlayer Player who joined
      */
     public void onJoin(@NotNull ProxyPlayer connectedPlayer) {
         for (TabFeature f : values) {
@@ -441,8 +427,7 @@ public class FeatureManager {
     /**
      * Handles proxy player server switch and forwards it to all features.
      *
-     * @param   player
-     *          Player who joined
+     * @param player Player who joined
      */
     public void onServerSwitch(@NotNull ProxyPlayer player) {
         for (TabFeature f : values) {
@@ -460,8 +445,7 @@ public class FeatureManager {
     /**
      * Handles proxy player quit and forwards it to all features.
      *
-     * @param   disconnectedPlayer
-     *          Player who left
+     * @param disconnectedPlayer Player who left
      */
     public void onQuit(@NotNull ProxyPlayer disconnectedPlayer) {
         for (TabFeature f : values) {
@@ -475,15 +459,14 @@ public class FeatureManager {
             }
         }
         for (TabPlayer all : TAB.getInstance().getOnlinePlayers()) {
-            ((TrackedTabList<?>)all.getTabList()).getExpectedDisplayNames().remove(disconnectedPlayer.getUniqueId());
+            ((TrackedTabList<?>) all.getTabList()).getExpectedDisplayNames().remove(disconnectedPlayer.getUniqueId());
         }
     }
 
     /**
      * Forwards vanish status change to all features.
      *
-     * @param   player
-     *          Player whose vanish status changed
+     * @param player Player whose vanish status changed
      */
     public void onVanishStatusChange(@NotNull ProxyPlayer player) {
         for (TabFeature f : values) {
@@ -501,10 +484,8 @@ public class FeatureManager {
     /**
      * Registers feature with given parameters.
      *
-     * @param   featureName
-     *          Name of feature to register as
-     * @param   featureHandler
-     *          Feature handler
+     * @param featureName    Name of feature to register as
+     * @param featureHandler Feature handler
      */
     public synchronized void registerFeature(@NotNull String featureName, @NotNull TabFeature featureHandler) {
         features.put(featureName, featureHandler);
@@ -527,8 +508,7 @@ public class FeatureManager {
     /**
      * Unregisters feature with given name.
      *
-     * @param   featureName
-     *          Name of the feature it was previously registered with.
+     * @param featureName Name of the feature it was previously registered with.
      */
     public void unregisterFeature(@NotNull String featureName) {
         features.remove(featureName);
@@ -538,9 +518,8 @@ public class FeatureManager {
     /**
      * Returns {@code true} if feature is enabled, {@code false} if not.
      *
-     * @param   name
-     *          Name of the feature
-     * @return  {@code true} if enabled, {@code false} if not
+     * @param name Name of the feature
+     * @return {@code true} if enabled, {@code false} if not
      */
     public boolean isFeatureEnabled(@NotNull String name) {
         return features.containsKey(name);
@@ -549,11 +528,9 @@ public class FeatureManager {
     /**
      * Returns feature by given name.
      *
-     * @param   name
-     *          Name of the feature
-     * @return  Feature handler
-     * @param   <T>
-     *          class extending TabFeature
+     * @param name Name of the feature
+     * @param <T>  class extending TabFeature
+     * @return Feature handler
      */
     @SuppressWarnings("unchecked")
     public <T extends TabFeature> T getFeature(@NotNull String name) {
@@ -579,10 +556,27 @@ public class FeatureManager {
                 proxy = new ProxyMessengerSupport("Redis", () -> RedisBroker.of(url));
             } else if (type.equalsIgnoreCase("RABBITMQ")) {
                 String exchange = config.getConfig().getString("proxy-support.rabbitmq.exchange", "plugin");
+
+                String host = System.getenv("RABBITMQ_HOST");
+                String port = System.getenv("RABBITMQ_PORT");
+                String username = System.getenv("RABBITMQ_USERNAME");
+                String password = System.getenv("RABBITMQ_PASSWORD");
+
                 String url = config.getConfig().getString("proxy-support.rabbitmq.url", "amqp://guest:guest@localhost:5672/%2F");
-                proxy = new ProxyMessengerSupport("RabbitMQ", () -> RabbitMQBroker.of(url, exchange));
+
+                if (host != null && port != null && username != null && password != null) {
+                    String vhost = System.getenv("RABBITMQ_VHOST");
+                    if (vhost == null) {
+                        vhost = "/";
+                    }
+                    String finalVhost = vhost;
+                    proxy = new ProxyMessengerSupport("RabbitMQ", () -> RabbitMQBroker.of(host, Integer.parseInt(port), username, password, finalVhost, exchange));
+                } else {
+                    proxy = new ProxyMessengerSupport("RabbitMQ", () -> RabbitMQBroker.of(url, exchange));
+                }
             }
-            if (proxy != null) TAB.getInstance().getFeatureManager().registerFeature(TabConstants.Feature.PROXY_SUPPORT, proxy);
+            if (proxy != null)
+                TAB.getInstance().getFeatureManager().registerFeature(TabConstants.Feature.PROXY_SUPPORT, proxy);
         }
 
         if (config.isPipelineInjection()) {
