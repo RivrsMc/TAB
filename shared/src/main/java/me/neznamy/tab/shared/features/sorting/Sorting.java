@@ -51,7 +51,10 @@ public class Sorting extends RefreshableFeature implements SortingManager, JoinL
         this.configuration = configuration;
         types.put("GROUPS", Groups::new);
         types.put("PERMISSIONS", Permissions::new);
-        types.put("PLACEHOLDER", Placeholder::new);
+        types.put("PLACEHOLDER", (sorting, value) -> {
+            Placeholder.PlaceholderSplitResult split = Placeholder.splitValue(value);
+            return split == null ? null : new Placeholder(sorting, split);
+        });
         types.put("PLACEHOLDER_A_TO_Z", PlaceholderAtoZ::new);
         types.put("PLACEHOLDER_Z_TO_A", PlaceholderZtoA::new);
         types.put("PLACEHOLDER_LOW_TO_HIGH", PlaceholderLowToHigh::new);
@@ -103,7 +106,10 @@ public class Sorting extends RefreshableFeature implements SortingManager, JoinL
             if (!types.containsKey(arr[0].toUpperCase())) {
                 TAB.getInstance().getConfigHelper().startup().invalidSortingTypeElement(arr[0].toUpperCase(), types.keySet());
             } else {
-                list.add(types.get(arr[0].toUpperCase()).apply(this, arr.length == 1 ? "" : element.substring(arr[0].length() + 1)));
+                SortingType type = types.get(arr[0].toUpperCase()).apply(this, arr.length == 1 ? "" : element.substring(arr[0].length() + 1));
+                if (type != null) {
+                    list.add(type);
+                }
             }
         }
         return list.toArray(new SortingType[0]);
@@ -165,7 +171,7 @@ public class Sorting extends RefreshableFeature implements SortingManager, JoinL
             }
             if (!nameTaken && proxy != null && nameTags != null) {
                 for (ProxyPlayer all : proxy.getProxyPlayers().values()) {
-                    if (potentialTeamName.equals(all.getTeamName())) {
+                    if (all.getNametag() != null && potentialTeamName.equals(all.getNametag().getResolvedTeamName())) {
                         nameTaken = true;
                         break;
                     }
@@ -226,44 +232,5 @@ public class Sorting extends RefreshableFeature implements SortingManager, JoinL
         ensureActive();
         ((TabPlayer)player).ensureLoaded();
         return ((TabPlayer)player).sortingData.shortTeamName;
-    }
-
-    /**
-     * Class storing sorting data for players.
-     */
-    public static class PlayerData {
-
-        /** Short team name (16 chars), used for teams */
-        public String shortTeamName;
-
-        /** Full sorting string, used for sorting in Layout (and maybe for 1.18+ in the future) */
-        public String fullTeamName;
-
-        /** Note explaining player's current team name */
-        public String teamNameNote;
-
-        /** Forced team name using API */
-        @Nullable
-        public String forcedTeamName;
-
-        /**
-         * Returns short team name. If forced using API, that value is returned.
-         *
-         * @return  short team name to use
-         */
-        @NotNull
-        public String getShortTeamName() {
-            return forcedTeamName != null ? forcedTeamName : shortTeamName;
-        }
-
-        /**
-         * Returns full team name. If forced using API, that value is returned.
-         *
-         * @return  full team name to use
-         */
-        @NotNull
-        public String getFullTeamName() {
-            return forcedTeamName != null ? forcedTeamName : fullTeamName;
-        }
     }
 }

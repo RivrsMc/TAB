@@ -1,9 +1,10 @@
 package me.neznamy.tab.shared.config.helper;
 
 import lombok.NonNull;
-import me.neznamy.chat.component.SimpleTextComponent;
 import me.neznamy.tab.api.bossbar.BossBar;
 import me.neznamy.tab.shared.TAB;
+import me.neznamy.tab.shared.chat.TabTextColor;
+import me.neznamy.tab.shared.chat.component.TabTextComponent;
 import me.neznamy.tab.shared.features.sorting.types.SortingType;
 import me.neznamy.tab.shared.platform.TabPlayer;
 import me.neznamy.tab.shared.proxy.ProxyTabPlayer;
@@ -91,8 +92,12 @@ public class RuntimeErrorPrinter {
         // Placeholders are not initialized, because bridge did not respond yet (typically on join)
         if (target instanceof ProxyTabPlayer && !((ProxyTabPlayer)target).isBridgeConnected()) return;
 
-        error(String.format("Belowname value is configured to show \"%s\", but returned \"%s\" for player %s, which cannot be evaluated to a number.",
-                configuredValue, output, target.getName()));
+        String msg = String.format("Belowname value is configured to show \"%s\", but returned \"%s\" for player %s, which cannot be evaluated to a number.",
+                configuredValue, output, target.getName());
+        if (output.contains("%")) {
+            msg += " Did you perhaps forget to download a PlaceholderAPI expansion?";
+        }
+        error(msg);
     }
 
     public void floatInBelowName(@NonNull TabPlayer target, @NonNull String configuredValue, @NonNull String output) {
@@ -108,8 +113,12 @@ public class RuntimeErrorPrinter {
         // Placeholders are not initialized, because bridge did not respond yet (typically on join)
         if (target instanceof ProxyTabPlayer && !((ProxyTabPlayer)target).isBridgeConnected()) return;
 
-        error(String.format("Playerlist objective value is configured to show \"%s\", but returned \"%s\" for player %s, which cannot be evaluated to a number.",
-                configuredValue, output, target.getName()));
+        String msg = String.format("Playerlist objective value is configured to show \"%s\", but returned \"%s\" for player %s, which cannot be evaluated to a number.",
+                configuredValue, output, target.getName());
+        if (output.contains("%")) {
+            msg += " Did you perhaps forget to download a PlaceholderAPI expansion?";
+        }
+        error(msg);
     }
 
     public void floatInPlayerlistObjective(@NonNull TabPlayer target, @NonNull String configuredValue, @NonNull String output) {
@@ -172,16 +181,6 @@ public class RuntimeErrorPrinter {
     }
 
     /**
-     * Logs a warning if MineSkin ID is invalid.
-     *
-     * @param   id
-     *          MineSkin ID
-     */
-    public void unknownMineSkin(@NonNull String id) {
-        error("Failed to load skin by id: No skin with the id '" + id + "' was found");
-    }
-
-    /**
      * Logs a warning if player with given name does not exist.
      *
      * @param   name
@@ -198,6 +197,6 @@ public class RuntimeErrorPrinter {
      *          Message to log
      */
     public void error(@NonNull String message) {
-        TAB.getInstance().getPlatform().logWarn(SimpleTextComponent.text(message.replace('§', '&')));
+        TAB.getInstance().getPlatform().logWarn(new TabTextComponent(message.replace('§', '&'), TabTextColor.RED));
     }
 }

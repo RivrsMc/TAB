@@ -1,19 +1,14 @@
 package me.neznamy.tab.shared.features.playerlistobjective;
 
-import com.google.common.io.ByteArrayDataInput;
-import com.google.common.io.ByteArrayDataOutput;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import me.neznamy.chat.component.SimpleTextComponent;
 import me.neznamy.tab.shared.Property;
 import me.neznamy.tab.shared.TAB;
 import me.neznamy.tab.shared.TabConstants;
+import me.neznamy.tab.shared.chat.component.TabComponent;
 import me.neznamy.tab.shared.cpu.ThreadExecutor;
 import me.neznamy.tab.shared.cpu.TimedCaughtTask;
 import me.neznamy.tab.shared.features.proxy.ProxyPlayer;
 import me.neznamy.tab.shared.features.proxy.ProxySupport;
-import me.neznamy.tab.shared.features.proxy.message.ProxyMessage;
 import me.neznamy.tab.shared.features.types.*;
 import me.neznamy.tab.shared.placeholders.conditions.Condition;
 import me.neznamy.tab.shared.platform.Scoreboard;
@@ -46,7 +41,7 @@ public class YellowNumber extends RefreshableFeature implements JoinListener, Qu
 
     private final PlayerListObjectiveConfiguration configuration;
 
-    private final PlayerlistObjectiveTitleRefresher titleRefresher = new PlayerlistObjectiveTitleRefresher(this);
+    private final PlayerListObjectiveTitleRefresher titleRefresher = new PlayerListObjectiveTitleRefresher(this);
     private final DisableChecker disableChecker;
 
     @Nullable
@@ -64,7 +59,7 @@ public class YellowNumber extends RefreshableFeature implements JoinListener, Qu
         TAB.getInstance().getFeatureManager().registerFeature(TabConstants.Feature.YELLOW_NUMBER + "-Condition", disableChecker);
         TAB.getInstance().getFeatureManager().registerFeature(TabConstants.Feature.YELLOW_NUMBER_TEXT, titleRefresher);
         if (proxy != null) {
-            proxy.registerMessage("yellow-number", UpdateProxyPlayer.class, UpdateProxyPlayer::new);
+            proxy.registerMessage(PlayerListObjectiveProxyPlayerData.class, in -> new PlayerListObjectiveProxyPlayerData(this, in));
         }
     }
 
@@ -80,9 +75,7 @@ public class YellowNumber extends RefreshableFeature implements JoinListener, Qu
                 register(loaded);
             }
             values.put(loaded, getValueNumber(loaded));
-            if (proxy != null) {
-                proxy.sendMessage(new UpdateProxyPlayer(loaded.getTablistId(), values.get(loaded), loaded.playerlistObjectiveData.valueModern.get()));
-            }
+            sendProxyMessage(loaded.getUniqueId(), values.get(loaded), loaded.playerlistObjectiveData.valueModern.get());
         }
         for (TabPlayer viewer : onlinePlayers.getPlayers()) {
             for (Map.Entry<TabPlayer, Integer> entry : values.entrySet()) {
@@ -116,16 +109,16 @@ public class YellowNumber extends RefreshableFeature implements JoinListener, Qu
             }
         }
         if (proxy != null) {
-            proxy.sendMessage(new UpdateProxyPlayer(connectedPlayer.getTablistId(), getValueNumber(connectedPlayer), connectedPlayer.playerlistObjectiveData.valueModern.get()));
+            sendProxyMessage(connectedPlayer);
             if (connectedPlayer.playerlistObjectiveData.disabled.get()) return;
             for (ProxyPlayer proxied : proxy.getProxyPlayers().values()) {
-                if (proxied.getPlayerlistFancy() == null) continue; // This proxy player is not loaded yet
+                if (proxied.getPlayerlist() == null) continue; // This proxy player is not loaded yet
                 connectedPlayer.getScoreboard().setScore(
                         OBJECTIVE_NAME,
                         proxied.getNickname(),
-                        proxied.getPlayerlistNumber(),
+                        proxied.getPlayerlist().getValue(),
                         null, // Unused by this objective slot
-                        proxied.getPlayerlistFancy()
+                        cache.get(proxied.getPlayerlist().getFancyValue())
                 );
             }
         }
@@ -148,15 +141,15 @@ public class YellowNumber extends RefreshableFeature implements JoinListener, Qu
                 setScore(p, all, getValueNumber(all), all.playerlistObjectiveData.valueModern.getFormat(p));
             }
             if (proxy != null) {
-                proxy.sendMessage(new UpdateProxyPlayer(p.getTablistId(), getValueNumber(p), p.playerlistObjectiveData.valueModern.get()));
+                sendProxyMessage(p);
                 for (ProxyPlayer proxied : proxy.getProxyPlayers().values()) {
-                    if (proxied.getPlayerlistFancy() == null) continue; // This proxy player is not loaded yet
+                    if (proxied.getPlayerlist() == null) continue; // This proxy player is not loaded yet
                     p.getScoreboard().setScore(
                             OBJECTIVE_NAME,
                             proxied.getNickname(),
-                            proxied.getPlayerlistNumber(),
+                            proxied.getPlayerlist().getValue(),
                             null, // Unused by this objective slot
-                            proxied.getPlayerlistFancy()
+                            cache.get(proxied.getPlayerlist().getFancyValue())
                     );
                 }
             }
@@ -203,7 +196,7 @@ public class YellowNumber extends RefreshableFeature implements JoinListener, Qu
         for (TabPlayer viewer : onlinePlayers.getPlayers()) {
             setScore(viewer, refreshed, value, refreshed.playerlistObjectiveData.valueModern.getFormat(viewer));
         }
-        if (proxy != null) proxy.sendMessage(new UpdateProxyPlayer(refreshed.getTablistId(), value, refreshed.playerlistObjectiveData.valueModern.get()));
+        sendProxyMessage(refreshed.getUniqueId(), value, refreshed.playerlistObjectiveData.valueModern.get());
     }
 
     private void register(@NotNull TabPlayer player) {
@@ -211,7 +204,7 @@ public class YellowNumber extends RefreshableFeature implements JoinListener, Qu
                 OBJECTIVE_NAME,
                 cache.get(player.playerlistObjectiveData.title.updateAndGet()),
                 configuration.getHealthDisplay(),
-                SimpleTextComponent.EMPTY
+                TabComponent.empty()
         );
         player.getScoreboard().setDisplaySlot(OBJECTIVE_NAME, Scoreboard.DisplaySlot.PLAYER_LIST);
     }
@@ -263,10 +256,49 @@ public class YellowNumber extends RefreshableFeature implements JoinListener, Qu
     // ProxySupport
     // ------------------
 
+    private void sendProxyMessage(@NotNull TabPlayer player) {
+        if (proxy == null) return;
+        sendProxyMessage(
+                player.getUniqueId(),
+                getValueNumber(player),
+                player.playerlistObjectiveData.valueModern.get()
+        );
+    }
+
+    private void sendProxyMessage(@NotNull UUID uniqueId, int value, @NotNull String fancyValue) {
+        if (proxy == null) return;
+        proxy.sendMessage(new PlayerListObjectiveProxyPlayerData(this, proxy.getIdCounter().incrementAndGet(), uniqueId, value, fancyValue));
+    }
+
     @Override
     public void onProxyLoadRequest() {
         for (TabPlayer all : onlinePlayers.getPlayers()) {
-            proxy.sendMessage(new UpdateProxyPlayer(all.getTablistId(), getValueNumber(all), all.playerlistObjectiveData.valueModern.get()));
+            sendProxyMessage(all);
+        }
+    }
+
+    @Override
+    public void onJoin(@NotNull ProxyPlayer player) {
+        updatePlayer(player);
+    }
+
+    /**
+     * Updates playerlist objective data of the specified player to all other players.
+     *
+     * @param   player
+     *          Player to update
+     */
+    public void updatePlayer(@NotNull ProxyPlayer player) {
+        if (player.getPlayerlist() == null) return; // Player not loaded yet
+        for (TabPlayer viewer : onlinePlayers.getPlayers()) {
+            if (viewer.playerlistObjectiveData.disabled.get()) continue;
+            viewer.getScoreboard().setScore(
+                    OBJECTIVE_NAME,
+                    player.getNickname(),
+                    player.getPlayerlist().getValue(),
+                    null, // Unused by this objective slot
+                    cache.get(player.getPlayerlist().getFancyValue())
+            );
         }
     }
 
@@ -274,65 +306,5 @@ public class YellowNumber extends RefreshableFeature implements JoinListener, Qu
     @Override
     public String getFeatureName() {
         return "Playerlist Objective";
-    }
-
-    /**
-     * Proxy message to update playerlist objective data of a player.
-     */
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private class UpdateProxyPlayer extends ProxyMessage {
-
-        private UUID playerId;
-        private int value;
-        private String fancyValue;
-
-        @NotNull
-        public ThreadExecutor getCustomThread() {
-            return customThread;
-        }
-
-        @Override
-        public void write(@NotNull ByteArrayDataOutput out) {
-            writeUUID(out, playerId);
-            out.writeInt(value);
-            out.writeUTF(fancyValue);
-        }
-
-        @Override
-        public void read(@NotNull ByteArrayDataInput in) {
-            playerId = readUUID(in);
-            value = in.readInt();
-            fancyValue = in.readUTF();
-        }
-
-        @Override
-        public void process(@NotNull ProxySupport proxySupport) {
-            ProxyPlayer target = proxySupport.getProxyPlayers().get(playerId);
-            if (target == null) {
-                TAB.getInstance().getErrorManager().printError("Unable to process Playerlist objective update of proxy player " + playerId + ", because no such player exists", null);
-                return;
-            }
-            if (target.getPlayerlistFancy() == null) {
-                TAB.getInstance().debug("Processing playerlist objective join of proxy player " + target.getName());
-            }
-            // Yellow number is already being processed by connected player
-            if (TAB.getInstance().isPlayerConnected(target.getUniqueId())) {
-                TAB.getInstance().debug("The player " + target.getName() + " is already connected");
-                return;
-            }
-            target.setPlayerlistNumber(value);
-            target.setPlayerlistFancy(cache.get(fancyValue));
-            for (TabPlayer viewer : onlinePlayers.getPlayers()) {
-                if (viewer.playerlistObjectiveData.disabled.get()) continue;
-                viewer.getScoreboard().setScore(
-                        OBJECTIVE_NAME,
-                        target.getNickname(),
-                        target.getPlayerlistNumber(),
-                        null, // Unused by this objective slot
-                        target.getPlayerlistFancy()
-                );
-            }
-        }
     }
 }

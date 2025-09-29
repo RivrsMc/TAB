@@ -1,14 +1,15 @@
 package me.neznamy.tab.platforms.neoforge;
 
 import com.mojang.logging.LogUtils;
-import me.neznamy.chat.ChatModifier;
-import me.neznamy.chat.component.KeybindComponent;
-import me.neznamy.chat.component.TabComponent;
-import me.neznamy.chat.component.TextComponent;
-import me.neznamy.chat.component.TranslatableComponent;
+import me.neznamy.tab.shared.ProjectVariables;
 import me.neznamy.tab.shared.TAB;
-import me.neznamy.tab.shared.TabConstants;
 import me.neznamy.tab.shared.backend.BackendPlatform;
+import me.neznamy.tab.shared.chat.TabStyle;
+import me.neznamy.tab.shared.chat.component.TabKeybindComponent;
+import me.neznamy.tab.shared.chat.component.TabComponent;
+import me.neznamy.tab.shared.chat.component.TabTextComponent;
+import me.neznamy.tab.shared.chat.component.TabTranslatableComponent;
+import me.neznamy.tab.shared.chat.component.object.TabObjectComponent;
 import me.neznamy.tab.shared.features.PerWorldPlayerListConfiguration;
 import me.neznamy.tab.shared.features.injection.PipelineInjector;
 import me.neznamy.tab.shared.features.types.TabFeature;
@@ -70,18 +71,18 @@ public record NeoForgePlatform(MinecraftServer server) implements BackendPlatfor
 
     @Override
     public void logInfo(@NotNull TabComponent message) {
-        LogUtils.getLogger().info("[TAB] {}", message.toRawText());
+        LogUtils.getLogger().info("[TAB] {}", ((Component) message.convert()).getString());
     }
 
     @Override
     public void logWarn(@NotNull TabComponent message) {
-        LogUtils.getLogger().warn("[TAB] {}", message.toRawText());
+        LogUtils.getLogger().warn("[TAB] {}", ((Component) message.convert()).getString());
     }
 
     @Override
     @NotNull
     public String getServerVersionInfo() {
-        return "[NeoForge] " + SharedConstants.getCurrentVersion().getName();
+        return "[NeoForge] " + SharedConstants.getCurrentVersion().name();
     }
 
     @Override
@@ -102,26 +103,23 @@ public record NeoForgePlatform(MinecraftServer server) implements BackendPlatfor
     @Override
     @NotNull
     public File getDataFolder() {
-        return FMLPaths.CONFIGDIR.get().resolve(TabConstants.PLUGIN_ID).toFile();
+        return FMLPaths.CONFIGDIR.get().resolve(ProjectVariables.PLUGIN_ID).toFile();
     }
 
     @Override
     @NotNull
     public Component convertComponent(@NotNull TabComponent component) {
         // Component type
-        MutableComponent nmsComponent;
-        if (component instanceof TextComponent text) {
-            nmsComponent = Component.literal(text.getText());
-        } else if (component instanceof TranslatableComponent translatable) {
-            nmsComponent = Component.translatable(translatable.getKey());
-        } else if (component instanceof KeybindComponent keybind) {
-            nmsComponent = Component.keybind(keybind.getKeybind());
-        } else {
-            throw new IllegalStateException("Unexpected component type: " + component.getClass().getName());
-        }
+        MutableComponent nmsComponent = switch (component) {
+            case TabTextComponent text -> Component.literal(text.getText());
+            case TabTranslatableComponent translatable -> Component.translatable(translatable.getKey());
+            case TabKeybindComponent keybind -> Component.keybind(keybind.getKeybind());
+            case TabObjectComponent object -> Component.literal(object.toLegacyText()); // TODO once released
+            default -> throw new IllegalStateException("Unexpected component type: " + component.getClass().getName());
+        };
 
         // Component style
-        ChatModifier modifier = component.getModifier();
+        TabStyle modifier = component.getModifier();
         Style style = Style.EMPTY
                 .withColor(modifier.getColor() == null ? null : TextColor.fromRgb(modifier.getColor().getRgb()))
                 .withBold(modifier.getBold())

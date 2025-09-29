@@ -4,7 +4,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import lombok.NonNull;
 import lombok.SneakyThrows;
-import me.neznamy.chat.component.TabComponent;
+import me.neznamy.tab.shared.chat.component.TabComponent;
 import me.neznamy.tab.platforms.bukkit.BukkitTabPlayer;
 import me.neznamy.tab.shared.TAB;
 import me.neznamy.tab.shared.platform.TabList;
@@ -36,30 +36,12 @@ public class NMSPacketTabList extends TrackedTabList<BukkitTabPlayer> {
 
     private static final Field PlayerInfoData_Latency = ReflectionUtils.getFields(PlayerInfoData.class, int.class).get(0);
     private static final Field PlayerInfoData_DisplayName = ReflectionUtils.getOnlyField(PlayerInfoData.class, IChatBaseComponent.class);
+    private static final Field PlayerInfoData_GameMode = ReflectionUtils.getOnlyField(PlayerInfoData.class, EnumGamemode.class);
 
-    @SneakyThrows
-    public static void onPacketSend(@NonNull Object packet, @NonNull TrackedTabList<BukkitTabPlayer> tabList) {
-        if (!(packet instanceof PacketPlayOutPlayerInfo)) return;
-        EnumPlayerInfoAction action = ((PacketPlayOutPlayerInfo)packet).c();
-        for (PlayerInfoData nmsData : ((PacketPlayOutPlayerInfo)packet).b()) {
-            GameProfile profile = nmsData.a();
-            UUID id = profile.getId();
-            if (action == EnumPlayerInfoAction.d || action == EnumPlayerInfoAction.a) {
-                TabComponent expectedName = tabList.getExpectedDisplayNames().get(id);
-                if (expectedName != null) PlayerInfoData_DisplayName.set(nmsData, expectedName.convert());
-            }
-            if (action == EnumPlayerInfoAction.c || action == EnumPlayerInfoAction.a) {
-                int oldLatency = nmsData.b();
-                int newLatency = TAB.getInstance().getFeatureManager().onLatencyChange(tabList.getPlayer(), id, oldLatency);
-                if (oldLatency != newLatency) {
-                    PlayerInfoData_Latency.set(nmsData, newLatency);
-                }
-            }
-            if (action == EnumPlayerInfoAction.a) {
-                TAB.getInstance().getFeatureManager().onEntryAdd(tabList.getPlayer(), id, profile.getName());
-            }
-        }
-    }
+    private static final EnumPlayerInfoAction ADD_PLAYER = EnumPlayerInfoAction.a;
+    private static final EnumPlayerInfoAction UPDATE_GAME_MODE = EnumPlayerInfoAction.b;
+    private static final EnumPlayerInfoAction UPDATE_LATENCY = EnumPlayerInfoAction.c;
+    private static final EnumPlayerInfoAction UPDATE_DISPLAY_NAME = EnumPlayerInfoAction.d;
 
     /**
      * Constructs new instance.
@@ -115,7 +97,7 @@ public class NMSPacketTabList extends TrackedTabList<BukkitTabPlayer> {
 
     @Override
     @SneakyThrows
-    public void setPlayerListHeaderFooter(@NonNull TabComponent header, @NonNull TabComponent footer) {
+    public void setPlayerListHeaderFooter0(@NonNull TabComponent header, @NonNull TabComponent footer) {
         sendPacket(new PacketPlayOutPlayerListHeaderFooter(header.convert(), footer.convert()));
     }
 
@@ -134,8 +116,30 @@ public class NMSPacketTabList extends TrackedTabList<BukkitTabPlayer> {
     }
 
     @Override
+    @SneakyThrows
     public void onPacketSend(@NonNull Object packet) {
-        onPacketSend(packet, this);
+        if (!(packet instanceof PacketPlayOutPlayerInfo)) return;
+        EnumPlayerInfoAction action = ((PacketPlayOutPlayerInfo)packet).c();
+        for (PlayerInfoData nmsData : ((PacketPlayOutPlayerInfo)packet).b()) {
+            GameProfile profile = nmsData.a();
+            UUID id = profile.getId();
+            if (action == UPDATE_DISPLAY_NAME || action == ADD_PLAYER) {
+                TabComponent expectedName = getForcedDisplayNames().get(id);
+                if (expectedName != null) PlayerInfoData_DisplayName.set(nmsData, expectedName.convert());
+            }
+            if (action == UPDATE_GAME_MODE || action == ADD_PLAYER) {
+                Integer forcedGameMode = getForcedGameModes().get(id);
+                if (forcedGameMode != null) PlayerInfoData_GameMode.set(nmsData, forcedGameMode);
+            }
+            if (action == UPDATE_LATENCY || action == ADD_PLAYER) {
+                if (getForcedLatency() != null) {
+                    PlayerInfoData_Latency.set(nmsData, getForcedLatency());
+                }
+            }
+            if (action == ADD_PLAYER) {
+                TAB.getInstance().getFeatureManager().onEntryAdd(player, id, profile.getName());
+            }
+        }
     }
 
     @SneakyThrows

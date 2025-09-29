@@ -1,10 +1,9 @@
 plugins {
-    id("net.kyori.blossom") version "1.3.1"
+    id("net.kyori.blossom") version "2.1.0"
 }
 
 dependencies {
     api(projects.api)
-    api(projects.component)
     api("org.yaml:snakeyaml:2.0")
     api("com.github.NEZNAMY:yamlassist:1.0.8")
     api("com.googlecode.json-simple:json-simple:1.1.1") {
@@ -32,13 +31,16 @@ dependencies {
     implementation("com.saicone.delivery4j:extension-guava:1.1.1")
 }
 
-blossom {
-    replaceToken("@name@", rootProject.name)
-    replaceToken("@id@", rootProject.ext.get("id")!!.toString())
-    replaceToken("@version@", project.version)
-    replaceToken("@description@", project.description)
-    replaceToken("@website@", rootProject.ext.get("website")!!.toString())
-    replaceToken("@author@", rootProject.ext.get("author")!!.toString())
-    replaceToken("@credits@", rootProject.ext.get("credits")!!.toString())
-    replaceTokenIn("src/main/java/me/neznamy/tab/shared/TabConstants.java")
+sourceSets.main {
+    blossom {
+        javaSources {
+            property("name", rootProject.name)
+            property("id", rootProject.ext.get("id")!!.toString())
+            property("version", project.version.toString())
+            property("description", project.description)
+            property("website", rootProject.ext.get("website")!!.toString())
+            property("author", rootProject.ext.get("author")!!.toString())
+            property("credits", rootProject.ext.get("credits")!!.toString())
+        }
+    }
 }

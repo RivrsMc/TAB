@@ -4,7 +4,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import lombok.NonNull;
 import lombok.SneakyThrows;
-import me.neznamy.chat.component.TabComponent;
+import me.neznamy.tab.shared.chat.component.TabComponent;
 import me.neznamy.tab.shared.TAB;
 import me.neznamy.tab.shared.platform.TabList;
 import me.neznamy.tab.shared.platform.decorators.TrackedTabList;
@@ -88,7 +88,7 @@ public class NeoForgeTabList extends TrackedTabList<NeoForgeTabPlayer> {
     }
 
     @Override
-    public void setPlayerListHeaderFooter(@NonNull TabComponent header, @NonNull TabComponent footer) {
+    public void setPlayerListHeaderFooter0(@NonNull TabComponent header, @NonNull TabComponent footer) {
         sendPacket(new ClientboundTabListPacket(header.convert(), footer.convert()));
     }
 
@@ -116,18 +116,25 @@ public class NeoForgeTabList extends TrackedTabList<NeoForgeTabPlayer> {
             for (ClientboundPlayerInfoUpdatePacket.Entry nmsData : info.entries()) {
                 boolean rewriteEntry = false;
                 Component displayName = nmsData.displayName();
+                int gameMode = nmsData.gameMode().getId();
                 int latency = nmsData.latency();
                 if (actions.contains(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME)) {
-                    TabComponent expectedDisplayName = getExpectedDisplayNames().get(nmsData.profileId());
-                    if (expectedDisplayName != null && expectedDisplayName.convert() != displayName) {
-                        displayName = expectedDisplayName.convert();
+                    TabComponent forcedDisplayName = getForcedDisplayNames().get(nmsData.profileId());
+                    if (forcedDisplayName != null && forcedDisplayName.convert() != displayName) {
+                        displayName = forcedDisplayName.convert();
+                        rewriteEntry = rewritePacket = true;
+                    }
+                }
+                if (actions.contains(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE)) {
+                    Integer forcedGameMode = getForcedGameModes().get(nmsData.profileId());
+                    if (forcedGameMode != null && forcedGameMode != gameMode) {
+                        gameMode = forcedGameMode;
                         rewriteEntry = rewritePacket = true;
                     }
                 }
                 if (actions.contains(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY)) {
-                    int newLatency = TAB.getInstance().getFeatureManager().onLatencyChange(player, nmsData.profileId(), latency);
-                    if (newLatency != latency) {
-                        latency = newLatency;
+                    if (getForcedLatency() != null) {
+                        latency = getForcedLatency();
                         rewriteEntry = rewritePacket = true;
                     }
                 }
@@ -135,7 +142,7 @@ public class NeoForgeTabList extends TrackedTabList<NeoForgeTabPlayer> {
                     TAB.getInstance().getFeatureManager().onEntryAdd(player, nmsData.profileId(), nmsData.profile().getName());
                 }
                 updatedList.add(rewriteEntry ? new ClientboundPlayerInfoUpdatePacket.Entry(
-                        nmsData.profileId(), nmsData.profile(), nmsData.listed(), latency, nmsData.gameMode(), displayName,
+                        nmsData.profileId(), nmsData.profile(), nmsData.listed(), latency, GameType.byId(gameMode), displayName,
                         nmsData.showHat(), nmsData.listOrder(), nmsData.chatSession()
                 ) : nmsData);
             }

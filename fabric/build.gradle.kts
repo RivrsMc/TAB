@@ -11,11 +11,15 @@ repositories {
     maven("https://maven.nucleoid.xyz/")
 }
 
-val minecraftVersion = "25w19a"
+val minecraftVersion = "1.21.9-rc1"
 
 // Fabric API versions for each Minecraft version for easier backporting
+// Official website (for updating in the future): https://fabricmc.net/develop/
 val fabricApiVersions = mapOf(
-    "25w19a" to "0.119.10+1.21.6",
+    "1.21.9-rc1" to "0.133.8+1.21.9",
+    "1.21.8" to "0.129.0+1.21.8",
+    "1.21.7" to "0.128.1+1.21.7",
+    "1.21.6" to "0.125.1+1.21.6",
     "1.21.5" to "0.119.9+1.21.5",
     "1.21.4" to "0.119.2+1.21.4",
     "1.21.3" to "0.114.0+1.21.3",
@@ -65,7 +69,7 @@ loom.accessWidenerPath.set(file("src/main/resources/resources/tab.accesswidener"
 
 tasks {
     compileJava {
-        options.release.set(17)
+        options.release.set(21)
     }
     validateAccessWidener {
         enabled = true

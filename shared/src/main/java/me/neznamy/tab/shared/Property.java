@@ -1,18 +1,17 @@
 package me.neznamy.tab.shared;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import lombok.Getter;
+import me.neznamy.tab.shared.chat.EnumChatFormat;
 import me.neznamy.tab.shared.features.PlaceholderManagerImpl;
 import me.neznamy.tab.shared.features.types.RefreshableFeature;
-import me.neznamy.chat.EnumChatFormat;
-import me.neznamy.chat.rgb.RGBUtils;
 import me.neznamy.tab.shared.placeholders.expansion.TabExpansion;
 import me.neznamy.tab.shared.placeholders.types.RelationalPlaceholderImpl;
 import me.neznamy.tab.shared.platform.TabPlayer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A dynamic text with placeholder support. If any placeholder
@@ -141,11 +140,6 @@ public class Property {
                 sb.insert(index+1, "%");
                 rawFormattedValue0 = sb.toString();
             }
-        }
-
-        // Make \n work even if used in '', which snakeyaml does not convert to newline
-        if (rawFormattedValue0.contains("\\n")) {
-            rawFormattedValue0 = rawFormattedValue0.replace("\\n", "\n");
         }
 
         // Apply static colors to not need to do it on every refresh
@@ -314,5 +308,19 @@ public class Property {
             if (listener != null) listener.addUsedPlaceholder(identifier);
         }
         return format;
+    }
+
+    /**
+     * Returns original raw value with placeholders replaced by their values.
+     *
+     * @return  original raw value with placeholders replaced
+     */
+    @NotNull
+    public String getOriginalReplacedValue() {
+        String value = originalRawValue;
+        for (String identifier : PlaceholderManagerImpl.detectPlaceholders(value)) {
+            value = TAB.getInstance().getPlaceholderManager().getPlaceholder(identifier).set(identifier, owner);
+        }
+        return EnumChatFormat.color(value);
     }
 }

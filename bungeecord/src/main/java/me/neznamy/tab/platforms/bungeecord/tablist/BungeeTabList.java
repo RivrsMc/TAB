@@ -2,7 +2,7 @@ package me.neznamy.tab.platforms.bungeecord.tablist;
 
 import lombok.NonNull;
 import lombok.SneakyThrows;
-import me.neznamy.chat.component.TabComponent;
+import me.neznamy.tab.shared.chat.component.TabComponent;
 import me.neznamy.tab.platforms.bungeecord.BungeeTabPlayer;
 import me.neznamy.tab.shared.TAB;
 import me.neznamy.tab.shared.platform.decorators.TrackedTabList;
@@ -11,8 +11,7 @@ import net.md_5.bungee.UserConnection;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.connection.InitialHandler;
 import net.md_5.bungee.connection.LoginResult;
-import net.md_5.bungee.protocol.Property;
-import net.md_5.bungee.protocol.packet.PlayerListHeaderFooter;
+import net.md_5.bungee.protocol.data.Property;
 import net.md_5.bungee.protocol.packet.PlayerListItem;
 import net.md_5.bungee.protocol.packet.PlayerListItem.Item;
 import net.md_5.bungee.protocol.packet.PlayerListItemUpdate;
@@ -46,8 +45,8 @@ public abstract class BungeeTabList extends TrackedTabList<BungeeTabPlayer> {
     }
 
     @Override
-    public void setPlayerListHeaderFooter(@NonNull TabComponent header, @NonNull TabComponent footer) {
-        player.sendPacket(new PlayerListHeaderFooter(toComponent(header), toComponent(footer)));
+    public void setPlayerListHeaderFooter0(@NonNull TabComponent header, @NonNull TabComponent footer) {
+        player.getPlayer().setTabHeader(toComponent(header), toComponent(footer));
     }
 
     /**
@@ -115,11 +114,17 @@ public abstract class BungeeTabList extends TrackedTabList<BungeeTabPlayer> {
             PlayerListItem listItem = (PlayerListItem) packet;
             for (PlayerListItem.Item item : listItem.getItems()) {
                 if (listItem.getAction() == PlayerListItem.Action.UPDATE_DISPLAY_NAME || listItem.getAction() == PlayerListItem.Action.ADD_PLAYER) {
-                    TabComponent expectedDisplayName = getExpectedDisplayNames().get(item.getUuid());
-                    if (expectedDisplayName != null) item.setDisplayName(toComponent(expectedDisplayName));
+                    TabComponent forcedDisplayName = getForcedDisplayNames().get(item.getUuid());
+                    if (forcedDisplayName != null) item.setDisplayName(toComponent(forcedDisplayName));
+                }
+                if (listItem.getAction() == PlayerListItem.Action.UPDATE_GAMEMODE || listItem.getAction() == PlayerListItem.Action.ADD_PLAYER) {
+                    Integer forcedGameMode = getForcedGameModes().get(item.getUuid());
+                    if (forcedGameMode != null) item.setGamemode(forcedGameMode);
                 }
                 if (listItem.getAction() == PlayerListItem.Action.UPDATE_LATENCY || listItem.getAction() == PlayerListItem.Action.ADD_PLAYER) {
-                    item.setPing(TAB.getInstance().getFeatureManager().onLatencyChange(player, item.getUuid(), item.getPing()));
+                    if (getForcedLatency() != null) {
+                        item.setPing(getForcedLatency());
+                    }
                 }
                 if (listItem.getAction() == PlayerListItem.Action.ADD_PLAYER) {
                     TAB.getInstance().getFeatureManager().onEntryAdd(player, item.getUuid(), item.getUsername());
@@ -129,11 +134,17 @@ public abstract class BungeeTabList extends TrackedTabList<BungeeTabPlayer> {
             PlayerListItemUpdate update = (PlayerListItemUpdate) packet;
             for (PlayerListItem.Item item : update.getItems()) {
                 if (update.getActions().contains(PlayerListItemUpdate.Action.UPDATE_DISPLAY_NAME)) {
-                    TabComponent expectedDisplayName = getExpectedDisplayNames().get(item.getUuid());
-                    if (expectedDisplayName != null) item.setDisplayName(toComponent(expectedDisplayName));
+                    TabComponent forcedDisplayName = getForcedDisplayNames().get(item.getUuid());
+                    if (forcedDisplayName != null) item.setDisplayName(toComponent(forcedDisplayName));
+                }
+                if (update.getActions().contains(PlayerListItemUpdate.Action.UPDATE_GAMEMODE)) {
+                    Integer forcedGameMode = getForcedGameModes().get(item.getUuid());
+                    if (forcedGameMode != null) item.setGamemode(forcedGameMode);
                 }
                 if (update.getActions().contains(PlayerListItemUpdate.Action.UPDATE_LATENCY)) {
-                    item.setPing(TAB.getInstance().getFeatureManager().onLatencyChange(player, item.getUuid(), item.getPing()));
+                    if (getForcedLatency() != null) {
+                        item.setPing(getForcedLatency());
+                    }
                 }
                 if (update.getActions().contains(PlayerListItemUpdate.Action.ADD_PLAYER)) {
                     TAB.getInstance().getFeatureManager().onEntryAdd(player, item.getUuid(), item.getUsername());

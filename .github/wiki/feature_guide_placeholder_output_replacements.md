@@ -51,8 +51,8 @@ placeholder-output-replacements:
 > [!NOTE]
 > The text must match exactly, including color codes.
 > To check the color codes a placeholder returns use
-> [`/tab parse <player> <placeholder>`](https://github.com/NEZNAMY/TAB/wiki/Commands-&-Permissions#tab-parse-text)
-> and check "Without colors" part.
+> [`/tab parse <player> <placeholder>`](https://github.com/NEZNAMY/TAB/wiki/Commands-&-Permissions#tab-parse-player-text)
+> and check "Raw colors" part.
 
 ### Pattern 2: Number intervals
 Output will be replaced if it's numeric and belongs in a configured interval.
@@ -168,7 +168,7 @@ and you'll need
 to use [Conditional placeholders](https://github.com/NEZNAMY/TAB/wiki/Feature-guide:-Conditional-placeholders) instead
 to achieve colored ping.
 
-# Example 3 - Using both original and replaced output
+## Example 3 - Using both original and replaced output
 Once configured, replacements are applied as the placeholder output everywhere. It is not directly possible to use original output in one place and replaced in another.
 
 If you need this, you should consider [conditional placeholders](https://github.com/NEZNAMY/TAB/wiki/Feature-guide:-Conditional-placeholders) instead.  

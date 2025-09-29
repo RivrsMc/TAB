@@ -6,7 +6,7 @@ import me.neznamy.tab.shared.ProtocolVersion;
 import me.neznamy.tab.shared.TAB;
 import me.neznamy.tab.shared.TabConstants;
 import me.neznamy.tab.shared.backend.BackendPlatform;
-import me.neznamy.chat.component.TabComponent;
+import me.neznamy.tab.shared.chat.component.TabComponent;
 import me.neznamy.tab.shared.features.PerWorldPlayerListConfiguration;
 import me.neznamy.tab.shared.features.injection.PipelineInjector;
 import me.neznamy.tab.shared.features.types.TabFeature;
@@ -129,6 +129,11 @@ public class SpongePlatform implements BackendPlatform {
     @Override
     public boolean supportsScoreboards() {
         return true;
+    }
+
+    @Override
+    public boolean supportsListOrder() {
+        return false; // Maybe add it in the future when LTS bumps
     }
 
     @Override

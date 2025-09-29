@@ -1,7 +1,7 @@
 package me.neznamy.tab.shared.platform;
 
 import lombok.*;
-import me.neznamy.chat.component.TabComponent;
+import me.neznamy.tab.shared.chat.component.TabComponent;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
@@ -34,6 +34,18 @@ public interface TabList {
     void updateDisplayName(@NonNull UUID entry, @Nullable TabComponent displayName);
 
     /**
+     * Updates display name of specified player. Using {@code null} makes it undefined and
+     * scoreboard team prefix/suffix will be visible instead. If the viewer cannot see the player,
+     * the action will not be sent to the client.
+     *
+     * @param   player
+     *          Player to safely update display name of
+     * @param   displayName
+     *          New display name
+     */
+    void updateDisplayName(@NonNull TabPlayer player, @Nullable TabComponent displayName);
+
+    /**
      * Updates latency of specified entry.
      *
      * @param   entry
@@ -44,6 +56,17 @@ public interface TabList {
     void updateLatency(@NonNull UUID entry, int latency);
 
     /**
+     * Updates latency of specified player. If the viewer cannot see the player,
+     * the action will not be sent to the client.
+     *
+     * @param   player
+     *          Player to safely update latency of
+     * @param   latency
+     *          New latency
+     */
+    void updateLatency(@NonNull TabPlayer player, int latency);
+
+    /**
      * Updates game mode of specified entry.
      *
      * @param   entry
@@ -52,6 +75,17 @@ public interface TabList {
      *          New game mode
      */
     void updateGameMode(@NonNull UUID entry, int gameMode);
+
+    /**
+     * Updates game mode of specified player. If the viewer cannot see the player,
+     * the action will not be sent to the client.
+     *
+     * @param   player
+     *          Player to safely update gamemode of
+     * @param   gameMode
+     *          New game mode
+     */
+    void updateGameMode(@NonNull TabPlayer player, int gameMode);
 
     /**
      * Updates listed flag of specified entry (1.19.3+).
@@ -108,7 +142,7 @@ public interface TabList {
      * @param   footer
      *          Footer to use
      */
-    void setPlayerListHeaderFooter(@NonNull TabComponent header, @NonNull TabComponent footer);
+    void setPlayerListHeaderFooter(@Nullable TabComponent header, @Nullable TabComponent footer);
 
     /**
      * Returns player's skin data
@@ -117,36 +151,6 @@ public interface TabList {
      */
     @Nullable
     Skin getSkin();
-
-    /**
-     * TabList action.
-     */
-    enum Action {
-
-        /** Adds player into the TabList */
-        ADD_PLAYER,
-
-        /** Removes player from the TabList */
-        REMOVE_PLAYER,
-
-        /** Updates game mode*/
-        UPDATE_GAME_MODE,
-
-        /** Updates listed flag (1.19.3+) */
-        UPDATE_LISTED,
-
-        /** Updates latency */
-        UPDATE_LATENCY,
-
-        /** Updates display name */
-        UPDATE_DISPLAY_NAME,
-
-        /** Updates list order (1.21.2+) */
-        UPDATE_LIST_ORDER,
-
-        /** Updates hat flag (1.21.4+) */
-        UPDATE_HAT
-    }
 
     /**
      * A subclass representing player list entry
