@@ -7,11 +7,9 @@ import me.neznamy.tab.shared.chat.component.TabKeybindComponent;
 import me.neznamy.tab.shared.chat.component.TabTextComponent;
 import me.neznamy.tab.shared.chat.component.TabTranslatableComponent;
 import me.neznamy.tab.shared.chat.component.object.TabObjectComponent;
+import me.neznamy.tab.shared.util.ReflectionUtils;
 import net.kyori.adventure.key.Key;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.KeybindComponent;
-import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.TranslatableComponent;
+import net.kyori.adventure.text.*;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -29,6 +27,7 @@ public class AdventureHook {
 
     /** Flag for tracking presence of shadow color parameter in current included adventure library (added in 1.21.4) */
     private static final boolean SHADOW_COLOR_AVAILABLE;
+    private static final boolean OBJECT_COMPONENTS_AVAILABLE = ReflectionUtils.classExists("net.kyori.adventure.text.ObjectComponent");
 
     static {
         boolean value;
@@ -80,7 +79,11 @@ public class AdventureHook {
             return Component.keybind(((TabKeybindComponent) component).getKeybind(), style.build()).children(list);
         }
         if (component instanceof TabObjectComponent) {
-            return Component.text(component.toLegacyText()); // TODO once added
+            if (OBJECT_COMPONENTS_AVAILABLE) {
+                return AdventureObjectHook.convert((TabObjectComponent) component);
+            } else {
+                return Component.text("<Object components are not supported in your version of Adventure library>");
+            }
         }
         throw new UnsupportedOperationException(component.getClass().getName() + " component type is not supported");
     }
@@ -108,21 +111,25 @@ public class AdventureHook {
             tabComponent = TabComponent.translatable(((TranslatableComponent) component).key());
         } else if (component instanceof KeybindComponent) {
             tabComponent = TabComponent.keybind(((KeybindComponent) component).keybind());
+        } else if (component instanceof ObjectComponent) {
+            tabComponent = AdventureObjectHook.convert((ObjectComponent) component);
         } else {
             throw new UnsupportedOperationException(component.getClass().getName() + " component type is not supported");
         }
 
         // Component style
         Map<TextDecoration, TextDecoration.State> decorations = component.style().decorations();
+        TextColor color = component.color();
+        Key font = component.font();
         tabComponent.setModifier(new TabStyle(
-                component.color() == null ? null : new TabTextColor(component.color().value()),
+                color == null ? null : new TabTextColor(color.value()),
                 SHADOW_COLOR_AVAILABLE ? AdventureShadowHook.getShadowColor(component) : null,
                 getDecoration(decorations.get(TextDecoration.BOLD)),
                 getDecoration(decorations.get(TextDecoration.ITALIC)),
                 getDecoration(decorations.get(TextDecoration.UNDERLINED)),
                 getDecoration(decorations.get(TextDecoration.STRIKETHROUGH)),
                 getDecoration(decorations.get(TextDecoration.OBFUSCATED)),
-                component.font() == null ? null : component.font().asString()
+                font == null ? null : font.asString()
         ));
 
         // Extra

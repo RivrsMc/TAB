@@ -4,6 +4,8 @@ import lombok.Getter;
 import me.neznamy.tab.shared.TAB;
 import me.neznamy.tab.shared.TabConstants;
 import me.neznamy.tab.shared.features.PlaceholderManagerImpl;
+import me.neznamy.tab.shared.features.proxy.ProxyPlayer;
+import me.neznamy.tab.shared.features.proxy.ProxySupport;
 import me.neznamy.tab.shared.hook.LuckPermsHook;
 import me.neznamy.tab.shared.placeholders.animation.Animation;
 import me.neznamy.tab.shared.placeholders.animation.AnimationConfiguration.AnimationDefinition;
@@ -57,7 +59,7 @@ public class UniversalPlaceholderRegistry {
         manager.registerInternalPlayerPlaceholder(TabConstants.Placeholder.WORLD, -1, p -> ((TabPlayer)p).world.getName());
         manager.registerInternalPlayerPlaceholder(TabConstants.Placeholder.SERVER, -1, p -> ((TabPlayer)p).server.getName());
         manager.registerInternalPlayerPlaceholder(TabConstants.Placeholder.PLAYER_VERSION, -1, p -> ((TabPlayer)p).getVersion().getFriendlyName());
-        manager.registerInternalPlayerPlaceholder(TabConstants.Placeholder.PLAYER_VERSION_ID, -1, p -> PerformanceUtil.toString(((TabPlayer)p).getVersion().getNetworkId()));
+        manager.registerInternalPlayerPlaceholder(TabConstants.Placeholder.PLAYER_VERSION_ID, -1, p -> PerformanceUtil.toString(((TabPlayer)p).getVersionId()));
 
         // Server
         manager.registerInternalServerPlaceholder("%%", -1, () -> "%");
@@ -83,12 +85,24 @@ public class UniversalPlaceholderRegistry {
             for (TabPlayer player : TAB.getInstance().getOnlinePlayers()) {
                 if (!player.isVanished()) count++;
             }
+            ProxySupport proxy = TAB.getInstance().getFeatureManager().getFeature(TabConstants.Feature.PROXY_SUPPORT);
+            if (proxy != null) {
+                for (ProxyPlayer player : proxy.getProxyPlayers().values()) {
+                    if (!player.isVanished()) count++;
+                }
+            }
             return PerformanceUtil.toString(count);
         });
         manager.registerInternalServerPlaceholder(TabConstants.Placeholder.STAFF_ONLINE, 2000, () -> {
             int count = 0;
             for (TabPlayer player : TAB.getInstance().getOnlinePlayers()) {
-                if (player.hasPermission(TabConstants.Permission.STAFF) && !player.isVanished()) count++;
+                if (!player.isVanished() && player.hasPermission(TabConstants.Permission.STAFF)) count++;
+            }
+            ProxySupport proxy = TAB.getInstance().getFeatureManager().getFeature(TabConstants.Feature.PROXY_SUPPORT);
+            if (proxy != null) {
+                for (ProxyPlayer player : proxy.getProxyPlayers().values()) {
+                    if (!player.isVanished() && player.isStaff()) count++;
+                }
             }
             return PerformanceUtil.toString(count);
         });
@@ -118,6 +132,12 @@ public class UniversalPlaceholderRegistry {
             for (TabPlayer player : TAB.getInstance().getOnlinePlayers()) {
                 if (((TabPlayer)p).server == player.server && !player.isVanished()) count++;
             }
+            ProxySupport proxySupport = TAB.getInstance().getFeatureManager().getFeature(TabConstants.Feature.PROXY_SUPPORT);
+            if (proxySupport != null) {
+                for (ProxyPlayer player : proxySupport.getProxyPlayers().values()) {
+                    if (((TabPlayer)p).server == player.server && !player.isVanished()) count++;
+                }
+            }
             return PerformanceUtil.toString(count);
         });
         manager.registerInternalPlayerPlaceholder(TabConstants.Placeholder.GAMEMODE, proxy ? -1 : 100, p -> PerformanceUtil.toString(((TabPlayer)p).getGamemode()));
@@ -137,12 +157,11 @@ public class UniversalPlaceholderRegistry {
             Animation a = new Animation(manager, entry.getKey(), entry.getValue());
             manager.registerInternalPlayerPlaceholder(TabConstants.Placeholder.animation(a.getName()), a.getRefresh(), p -> a.getMessage());
         }
-        Condition.clearConditions();
         for (Entry<String, ConditionDefinition> condition : TAB.getInstance().getConfiguration().getConfig().getConditions().getConditions().entrySet()) {
-            ConditionDefinition def = condition.getValue();
-            Condition c = new Condition(def.isType(), condition.getKey(), def.getConditions(), def.getYes(), def.getNo());
+            Condition c = new Condition(condition.getValue());
             manager.registerInternalPlayerPlaceholder(TabConstants.Placeholder.condition(c.getName()), c.getRefresh(), p -> c.getText((TabPlayer)p));
+            TAB.getInstance().getPlaceholderManager().getConditionManager().registerCondition(c);
         }
-        Condition.finishSetups();
+        manager.getConditionManager().finishSetups();
     }
 }

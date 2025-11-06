@@ -110,7 +110,14 @@ public class FabricTabList extends TrackedTabList<FabricTabPlayer> {
 
     @Override
     @SneakyThrows
-    public void onPacketSend(@NonNull Object packet) {
+    @NotNull
+    public Object onPacketSend(@NonNull Object packet) {
+        if (packet instanceof ClientboundTabListPacket tablist) {
+            if (header == null || footer == null) return packet;
+            if (tablist.header() != header.convert() || tablist.footer() != footer.convert()) {
+                return new ClientboundTabListPacket(header.convert(), footer.convert());
+            }
+        }
         if (packet instanceof ClientboundPlayerInfoUpdatePacket info) {
             EnumSet<ClientboundPlayerInfoUpdatePacket.Action> actions = info.actions();
             List<ClientboundPlayerInfoUpdatePacket.Entry> updatedList = new ArrayList<>();
@@ -148,8 +155,13 @@ public class FabricTabList extends TrackedTabList<FabricTabPlayer> {
                         nmsData.showHat(), nmsData.listOrder(), nmsData.chatSession()
                 ) : nmsData);
             }
-            if (rewritePacket) entries.set(info, updatedList);
+            if (rewritePacket) {
+                ClientboundPlayerInfoUpdatePacket newPacket = new ClientboundPlayerInfoUpdatePacket(actions, Collections.emptyList());
+                entries.set(newPacket, updatedList);
+                return newPacket;
+            }
         }
+        return packet;
     }
 
     @SneakyThrows

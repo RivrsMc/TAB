@@ -17,6 +17,7 @@ import me.neznamy.tab.shared.features.scoreboard.ScoreboardManagerImpl;
 import me.neznamy.tab.shared.platform.EventListener;
 import me.neznamy.tab.shared.platform.TabPlayer;
 import me.neznamy.tab.shared.platform.decorators.SafeBossBar;
+import me.neznamy.tab.shared.util.ReflectionUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
@@ -27,6 +28,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * The core for Velocity forwarding events into all enabled features
  */
 public class VelocityEventListener implements EventListener<Player> {
+
+    /**
+     * Whether plugin should be compensating for bossbar bug that was fixed in build #546 or not.
+     * Compensating on builds #546+ will duplicate bossbars on server switch.
+     * Not compensating on builds #545- will cause player disconnects on 1.20.5+ clients on server switch.
+     * Not going to bump minimum required version just for this, we will wait for another opportunity to bump minimum build and then remove this.
+     */
+    private static final boolean BOSSBAR_BUG_COMPENSATION = !ReflectionUtils.classExists("com.velocitypowered.proxy.connection.player.bossbar.BossBarManager");
 
     /** Map for tracking online players */
     private final Map<Player, UUID> players = new ConcurrentHashMap<>();
@@ -55,10 +64,11 @@ public class VelocityEventListener implements EventListener<Player> {
      */
     @Subscribe
     public void preConnect(@NotNull ServerPreConnectEvent e) {
+        if (!BOSSBAR_BUG_COMPENSATION) return;
         if (TAB.getInstance().isPluginDisabled()) return;
         if (e.getResult().isAllowed()) {
             TabPlayer p = TAB.getInstance().getPlayer(e.getPlayer().getUniqueId());
-            if (p != null && p.getVersion().getNetworkId() >= ProtocolVersion.V1_20_2.getNetworkId()) {
+            if (p != null && p.getVersionId() >= ProtocolVersion.V1_20_2.getNetworkId()) {
                 ((SafeBossBar<?>)p.getBossBar()).freeze();
             }
         }
@@ -87,7 +97,7 @@ public class VelocityEventListener implements EventListener<Player> {
                         Server.byName(e.getPlayer().getCurrentServer().map(s -> s.getServerInfo().getName()).orElse("null"))
                 );
                 tab.getFeatureManager().onTabListClear(player);
-                if (player.getVersion().getNetworkId() >= ProtocolVersion.V1_20_2.getNetworkId()) {
+                if (BOSSBAR_BUG_COMPENSATION && player.getVersionId() >= ProtocolVersion.V1_20_2.getNetworkId()) {
                     ((SafeBossBar<?>)player.getBossBar()).unfreezeAndResend();
                 }
             }

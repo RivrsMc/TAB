@@ -284,9 +284,11 @@ public abstract class SafeScoreboard<T extends TabPlayer> implements Scoreboard 
      *
      * @param   packet
      *          Packet sent by the server
+     * @return  Packet to forward
      */
-    public void onPacketSend(@NonNull Object packet) {
-        // Implemented by platforms with pipeline injection
+    @NotNull
+    public Object onPacketSend(@NonNull Object packet) {
+        return packet;
     }
 
     /**
@@ -366,11 +368,26 @@ public abstract class SafeScoreboard<T extends TabPlayer> implements Scoreboard 
      *          Expected team
      */
     public static void logTeamOverride(@NonNull String team, @NonNull String player, @NonNull Team expectedTeam) {
-        String message = "Blocked attempt to add player " + player + " into team " + team + " (expected team: " + expectedTeam.getName() + ")";
+        String source = null;
+        String fix = null;
+        if (team.startsWith("collideRule_")) {
+            source = "Paper";
+            fix = "set \"enable-player-collisions: true\" in paper config. To keep collisions disabled, set collision to false in TAB config.";
+        } else if (team.startsWith("CMINP")) {
+            source = "CMI";
+            fix = "set \"DisableTeamManagement: true\" in \"plugins/CMI/config.yml\".";
+        } else if (team.startsWith("CIT-")) {
+            source = "Citizens";
+            fix = "use NPC names that do not match names of online players.";
+        }
+        String message = "Blocked attempt to add player " + player + " into team " + team + " (expected team: " + expectedTeam.getName() + ").";
+        if (source != null) {
+            message += " Source of the team: " + source + ". To fix this, " + fix;
+        }
         //not logging the same message for every online player who received the packet
         if (!message.equals(lastTeamOverrideMessage)) {
             lastTeamOverrideMessage = message;
-            TAB.getInstance().getErrorManager().printError(message, Collections.emptyList(), false, TAB.getInstance().getErrorManager().getAntiOverrideLog());
+            TAB.getInstance().getErrorManager().logAntiOverride(message);
         }
     }
 

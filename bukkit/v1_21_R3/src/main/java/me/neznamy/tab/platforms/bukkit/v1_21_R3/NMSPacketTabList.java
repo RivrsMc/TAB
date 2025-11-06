@@ -47,8 +47,6 @@ public class NMSPacketTabList extends TrackedTabList<BukkitTabPlayer> {
     private static final EnumSet<ClientboundPlayerInfoUpdatePacket.a> UPDATE_LIST_ORDER_SET = EnumSet.of(UPDATE_LIST_ORDER);
     private static final EnumSet<ClientboundPlayerInfoUpdatePacket.a> UPDATE_HAT_SET = EnumSet.of(UPDATE_HAT);
 
-    private static final Field entries = ReflectionUtils.getOnlyField(ClientboundPlayerInfoUpdatePacket.class, List.class);
-
     /**
      * Constructs new instance.
      *
@@ -123,8 +121,15 @@ public class NMSPacketTabList extends TrackedTabList<BukkitTabPlayer> {
 
     @SneakyThrows
     @Override
-    public void onPacketSend(@NonNull Object packet) {
-        if (!(packet instanceof ClientboundPlayerInfoUpdatePacket info)) return;
+    @NotNull
+    public Object onPacketSend(@NonNull Object packet) {
+        if (packet instanceof PacketPlayOutPlayerListHeaderFooter tablist) {
+            if (header == null || footer == null) return packet;
+            if (tablist.b != header.convert() || tablist.c != footer.convert()) {
+                return new PacketPlayOutPlayerListHeaderFooter(header.convert(), footer.convert());
+            }
+        }
+        if (!(packet instanceof ClientboundPlayerInfoUpdatePacket info)) return packet;
         EnumSet<ClientboundPlayerInfoUpdatePacket.a> actions = info.b();
         List<ClientboundPlayerInfoUpdatePacket.b> updatedList = new ArrayList<>();
         boolean rewritePacket = false;
@@ -162,7 +167,12 @@ public class NMSPacketTabList extends TrackedTabList<BukkitTabPlayer> {
                     nmsData.g(), nmsData.h(), nmsData.i()
             ) : nmsData);
         }
-        if (rewritePacket) entries.set(info, updatedList);
+        if (rewritePacket) {
+            ClientboundPlayerInfoUpdatePacket newPacket = new ClientboundPlayerInfoUpdatePacket(actions, Collections.emptyList());
+            PLAYERS.set(newPacket, updatedList);
+            return newPacket;
+        }
+        return packet;
     }
 
     @SneakyThrows
@@ -175,7 +185,7 @@ public class NMSPacketTabList extends TrackedTabList<BukkitTabPlayer> {
                 createProfile(id, name, skin),
                 listed,
                 latency,
-                EnumGamemode.values()[gameMode],
+                EnumGamemode.a(gameMode),
                 displayName == null ? null : displayName.convert(),
                 showHat,
                 listOrder,

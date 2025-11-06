@@ -37,6 +37,7 @@ public class NMSPacketTabList extends TrackedTabList<BukkitTabPlayer> {
     private static final Field PlayerInfoData_DisplayName = ReflectionUtils.getOnlyField(PlayerInfoData, IChatBaseComponent.class);
     private static final Field PlayerInfoData_GameMode = ReflectionUtils.getOnlyField(PlayerInfoData, EnumGamemode.class);
 
+    private static final Field HEADER = ReflectionUtils.getFields(PacketPlayOutPlayerListHeaderFooter.class, IChatBaseComponent.class).get(0);
     private static final Field FOOTER = ReflectionUtils.getFields(PacketPlayOutPlayerListHeaderFooter.class, IChatBaseComponent.class).get(1);
 
     /**
@@ -92,11 +93,8 @@ public class NMSPacketTabList extends TrackedTabList<BukkitTabPlayer> {
     }
 
     @Override
-    @SneakyThrows
     public void setPlayerListHeaderFooter0(@NonNull TabComponent header, @NonNull TabComponent footer) {
-        PacketPlayOutPlayerListHeaderFooter packet = new PacketPlayOutPlayerListHeaderFooter(header.convert());
-        FOOTER.set(packet, footer.convert());
-        sendPacket(packet);
+        sendPacket(newHeaderFooter(header, footer));
     }
 
     @Override
@@ -113,46 +111,98 @@ public class NMSPacketTabList extends TrackedTabList<BukkitTabPlayer> {
         return new Skin(property.getValue(), property.getSignature());
     }
 
+    @NonNull
+    @SneakyThrows
+    private PacketPlayOutPlayerListHeaderFooter newHeaderFooter(@NotNull TabComponent header, @NonNull TabComponent footer) {
+        PacketPlayOutPlayerListHeaderFooter packet = new PacketPlayOutPlayerListHeaderFooter(header.convert());
+        FOOTER.set(packet, footer.convert());
+        return packet;
+    }
+
     @Override
     @SneakyThrows
+    @NotNull
     @SuppressWarnings("unchecked")
-    public void onPacketSend(@NonNull Object packet) {
-        if (!(packet instanceof PacketPlayOutPlayerInfo)) return;
-        EnumPlayerInfoAction action = (EnumPlayerInfoAction) ACTION.get(packet);
-        for (Object nmsData : (List<Object>) PLAYERS.get(packet)) {
+    public Object onPacketSend(@NonNull Object packet) {
+        if (packet instanceof PacketPlayOutPlayerListHeaderFooter) {
+            PacketPlayOutPlayerListHeaderFooter tablist = (PacketPlayOutPlayerListHeaderFooter) packet;
+            if (header == null || footer == null) return packet;
+            IChatBaseComponent header = (IChatBaseComponent) HEADER.get(tablist);
+            IChatBaseComponent footer = (IChatBaseComponent) FOOTER.get(tablist);
+            if (header != this.header.convert() || footer != this.footer.convert()) {
+                return newHeaderFooter(this.header, this.footer);
+            }
+        }
+        if (!(packet instanceof PacketPlayOutPlayerInfo)) return packet;
+        PacketPlayOutPlayerInfo info = (PacketPlayOutPlayerInfo) packet;
+        EnumPlayerInfoAction action = (EnumPlayerInfoAction) ACTION.get(info);
+        List<Object> updatedList = new ArrayList<>();
+        boolean rewritePacket = false;
+        for (Object nmsData : (List<Object>) PLAYERS.get(info)) {
+            boolean rewriteEntry = false;
             GameProfile profile = (GameProfile) PlayerInfoData_Profile.get(nmsData);
             UUID id = profile.getId();
+            IChatBaseComponent displayName = (IChatBaseComponent) PlayerInfoData_DisplayName.get(nmsData);
+            int latency = PlayerInfoData_Latency.getInt(nmsData);
+            int gameMode = ((EnumGamemode)PlayerInfoData_GameMode.get(nmsData)).getId();
             if (action == EnumPlayerInfoAction.UPDATE_DISPLAY_NAME || action == EnumPlayerInfoAction.ADD_PLAYER) {
-                TabComponent expectedName = getForcedDisplayNames().get(id);
-                if (expectedName != null) PlayerInfoData_DisplayName.set(nmsData, expectedName.convert());
+                TabComponent forcedDisplayName = getForcedDisplayNames().get(id);
+                if (forcedDisplayName != null && forcedDisplayName.convert() != displayName) {
+                    displayName = forcedDisplayName.convert();
+                    rewriteEntry = rewritePacket = true;
+                }
             }
             if (action == EnumPlayerInfoAction.UPDATE_GAME_MODE || action == EnumPlayerInfoAction.ADD_PLAYER) {
                 Integer forcedGameMode = getForcedGameModes().get(id);
-                if (forcedGameMode != null) PlayerInfoData_GameMode.set(nmsData, forcedGameMode);
+                if (forcedGameMode != null && forcedGameMode != gameMode) {
+                    gameMode = forcedGameMode;
+                    rewriteEntry = rewritePacket = true;
+                }
             }
             if (action == EnumPlayerInfoAction.UPDATE_LATENCY || action == EnumPlayerInfoAction.ADD_PLAYER) {
                 if (getForcedLatency() != null) {
-                    PlayerInfoData_Latency.set(nmsData, getForcedLatency());
+                    latency = getForcedLatency();
+                    rewriteEntry = rewritePacket = true;
                 }
             }
             if (action == EnumPlayerInfoAction.ADD_PLAYER) {
                 TAB.getInstance().getFeatureManager().onEntryAdd(player, id, profile.getName());
             }
+            updatedList.add(rewriteEntry ? newPlayerInfoData(
+                    (PacketPlayOutPlayerInfo) packet,
+                    profile,
+                    latency,
+                    EnumGamemode.getById(gameMode),
+                    displayName
+            ) : nmsData);
         }
+        if (rewritePacket) {
+            PacketPlayOutPlayerInfo newPacket = new PacketPlayOutPlayerInfo(action, Collections.emptyList());
+            PLAYERS.set(newPacket, updatedList);
+            return newPacket;
+        }
+        return packet;
     }
 
     @SneakyThrows
     private void sendPacket(@NonNull EnumPlayerInfoAction action, @NonNull UUID id, @NonNull String name,
                             @Nullable Skin skin, int latency, int gameMode, @Nullable TabComponent displayName) {
         PacketPlayOutPlayerInfo packet = new PacketPlayOutPlayerInfo(action);
-        PLAYERS.set(packet, Collections.singletonList(newPlayerInfoData.newInstance(
+        PLAYERS.set(packet, Collections.singletonList(newPlayerInfoData(
                 packet,
                 createProfile(id, name, skin),
                 latency,
-                EnumGamemode.values()[gameMode],
+                EnumGamemode.getById(gameMode),
                 displayName == null ? null : displayName.convert())
         ));
         sendPacket(packet);
+    }
+
+    @NotNull
+    @SneakyThrows
+    private Object newPlayerInfoData(@NonNull PacketPlayOutPlayerInfo packet, @NonNull GameProfile profile,
+                                     int latency, @NonNull EnumGamemode gameMode, @Nullable IChatBaseComponent displayName) {
+        return newPlayerInfoData.newInstance(packet, profile, latency, gameMode, displayName);
     }
 
     /**

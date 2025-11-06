@@ -50,6 +50,8 @@ Most commonly used plugins for this are [FastLogin](https://www.spigotmc.org/res
 which change connections of premium players who enabled it to online connections.  
 The same goes for disabling heads - you cannot disable them if you have online mode enabled.
 
+Minecraft 1.21.9 has added [object components](https://github.com/NEZNAMY/TAB/wiki/How-to-use-Minecraft-components#object-components-1219), which allow you to display player heads. You can put for example `<head:name:%player%>` at the beginning of tabprefix to simulate this.
+
 ## #7 - Where can i find current default config files?
 You can do any of the following:
 * Check the [source code](https://github.com/NEZNAMY/TAB/tree/master/shared/src/main/resources/config).
@@ -74,8 +76,8 @@ You will need a custom minecraft client or a resource pack.
 Most common reasons for a placeholder to not work include:
 * Using % symbol by itself, which breaks placeholder starts and ends and therefore breaks all placeholders after it (use %% to display the symbol)
 * Trying to use a PlaceholderAPI placeholder without downloading its expansion or not having PlaceholderAPI installed at all
-* Trying to use [TAB's internal bukkit-only placeholders](https://github.com/NEZNAMY/TAB/wiki/Placeholders#bukkit-only) on BungeeCord
-* Trying to use [PlaceholderAPI placeholders on BungeeCord](https://github.com/NEZNAMY/TAB/wiki/How-to-set-up-PlaceholderAPI-support-on-bungeecord) without installing [bridge plugin](https://github.com/NEZNAMY/TAB/wiki/TAB-Bridge)
+* Trying to use [TAB's internal backend-only placeholders](https://github.com/NEZNAMY/TAB/wiki/Placeholders#backend-only) on a proxy
+* Trying to use PlaceholderAPI placeholders on proxy without installing [bridge plugin](https://github.com/NEZNAMY/TAB/wiki/TAB-Bridge)
 
 The full list of reasons can be found on the [Placeholders](https://github.com/NEZNAMY/TAB/wiki/Placeholders#placeholder-is-not-working) page.
 
@@ -115,14 +117,7 @@ You can check out [this reddit post](https://www.reddit.com/r/admincraft/comment
 When using the symbol in configuration using \u format, remember to use `""` in config instead of `''`.
 
 ## #16 - Is MiniMessage supported?
-Kind of.
-MiniMessage support **is** included; however, this doesn't mean it is guaranteed to work.
-MiniMessage library must be included in your server software.
-TAB does not include this library.
-* It **is** included in **Paper 1.18.2** and higher, **Velocity** and **Sponge**.
-* It **is not** included in **Spigot**, any server software for 1.18.1 and lower, **BungeeCord**, **Fabric**, **Forge** and **NeoForge**.
-
-If you believe MiniMessage should be supported on your server but doesn't work, open a bug report.
+Yes, however, it must be included in your server software (it is only in Paper / Velocity). Read more about MiniMessage hook [here](https://github.com/NEZNAMY/TAB/wiki/How-to-use-Minecraft-components#minimessage).
 
 ## #17 - Is it possible to show the number of players in a specific group, similar to staffonline placeholder?
 The plugin's internal placeholders are limited, and this kind of functionality is not included.

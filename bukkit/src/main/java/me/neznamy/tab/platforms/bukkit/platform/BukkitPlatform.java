@@ -39,7 +39,6 @@ import me.neznamy.tab.shared.platform.TabList;
 import me.neznamy.tab.shared.platform.TabPlayer;
 import me.neznamy.tab.shared.platform.impl.AdventureBossBar;
 import me.neznamy.tab.shared.platform.impl.DummyBossBar;
-import me.neznamy.tab.shared.util.PerformanceUtil;
 import me.neznamy.tab.shared.util.ReflectionUtils;
 import net.kyori.adventure.audience.Audience;
 import net.milkbowl.vault.chat.Chat;
@@ -84,10 +83,14 @@ public class BukkitPlatform implements BackendPlatform {
     /** Detection for presence of Paper's MSPT getter */
     private final boolean paperMspt = ReflectionUtils.methodExists(Bukkit.class, "getAverageTickTime");
 
+    /** Package name of the server implementation, null on Paper 1.20.5+ */
+    @Nullable
+    private final String serverPackage;
+
     /** Implementation for creating new instances using content available on the server */
     @NotNull
     @Setter
-    private ImplementationProvider implementationProvider = findImplementationProvider();
+    private ImplementationProvider implementationProvider;
 
     private final boolean modernOnlinePlayers;
 
@@ -101,6 +104,10 @@ public class BukkitPlatform implements BackendPlatform {
     public BukkitPlatform(@NotNull JavaPlugin plugin) {
         this.plugin = plugin;
         modernOnlinePlayers = Bukkit.class.getMethod("getOnlinePlayers").getReturnType() == Collection.class;
+        String CRAFTBUKKIT_PACKAGE = Bukkit.getServer().getClass().getPackage().getName();
+        String[] array = CRAFTBUKKIT_PACKAGE.split("\\.");
+        serverPackage = array.length > 3 ? array[3] : null;
+        implementationProvider = findImplementationProvider();
         try {
             Object server = Bukkit.getServer().getClass().getMethod("getServer").invoke(Bukkit.getServer());
             recentTps = ((double[]) server.getClass().getField("recentTps").get(server));
@@ -115,10 +122,6 @@ public class BukkitPlatform implements BackendPlatform {
     @NotNull
     @SneakyThrows
     private ImplementationProvider findImplementationProvider() {
-        String CRAFTBUKKIT_PACKAGE = Bukkit.getServer().getClass().getPackage().getName();
-        String[] array = CRAFTBUKKIT_PACKAGE.split("\\.");
-        String serverPackage = array.length > 3 ? array[3] : null;
-
         if (serverPackage == null) {
             // Paper 1.20.5+, check for available module
             String paperModule = getPaperModule();
@@ -131,10 +134,8 @@ public class BukkitPlatform implements BackendPlatform {
                 // Does not actually support flat 1.19, but whatever, no one is using it anyway
                 return (ImplementationProvider) Class.forName("me.neznamy.tab.platforms.bukkit." + serverPackage + ".NMSImplementationProvider").getConstructor().newInstance();
             } catch (ClassNotFoundException ignored) {
-
             }
         }
-
         throw new UnsupportedOperationException();
     }
 
@@ -163,6 +164,9 @@ public class BukkitPlatform implements BackendPlatform {
             case V1_21_7:
             case V1_21_8:
                 return "1_21_4";
+            case V1_21_9:
+            case V1_21_10:
+                return "1_21_9";
             default:
                 return null;
         }
@@ -188,8 +192,6 @@ public class BukkitPlatform implements BackendPlatform {
                 manager.registerInternalPlayerPlaceholder("%vault-suffix%", 1000, p -> chat.getPlayerSuffix((Player) p.getPlayer()));
             }
         }
-        // Override for the PAPI placeholder to prevent console errors on unsupported server versions when ping field changes
-        manager.registerPlayerPlaceholder("%player_ping%", p -> PerformanceUtil.toString(((TabPlayer) p).getPing()));
         BackendPlatform.super.registerPlaceholders();
     }
 
@@ -271,7 +273,7 @@ public class BukkitPlatform implements BackendPlatform {
     @Override
     @NotNull
     public String getServerVersionInfo() {
-        return "[Bukkit] " + Bukkit.getName() + " - " + Bukkit.getBukkitVersion().split("-")[0];
+        return "[Bukkit] " + Bukkit.getName() + " - " + Bukkit.getBukkitVersion().split("-")[0] + " (" + serverPackage + ")";
     }
 
     @Override

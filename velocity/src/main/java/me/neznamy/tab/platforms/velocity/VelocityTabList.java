@@ -5,6 +5,7 @@ import com.velocitypowered.api.util.GameProfile;
 import lombok.NonNull;
 import me.neznamy.tab.shared.chat.component.TabComponent;
 import me.neznamy.tab.shared.platform.decorators.TrackedTabList;
+import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -129,6 +130,17 @@ public class VelocityTabList extends TrackedTabList<VelocityTabPlayer> {
             if (forcedGameMode != null && entry.getGameMode() != forcedGameMode) {
                 entry.setGameMode(forcedGameMode);
             }
+        }
+    }
+
+    @Override
+    public void checkHeaderFooter() {
+        if (true) return; // Disable this for now. Velocity "translates" the component, breaking identity reference.
+        if (header == null || footer == null) return;
+        Component actualHeader = player.getPlayer().getPlayerListHeader();
+        Component actualFooter = player.getPlayer().getPlayerListFooter();
+        if (actualHeader != header.toAdventure() || actualFooter != footer.toAdventure()) {
+            player.getPlayer().sendPlayerListHeaderAndFooter(header.toAdventure(), footer.toAdventure());
         }
     }
 }
